@@ -7,4 +7,3 @@ langchain-ollama
 chromadb
 pypdf
 ollama
-sentence-transformers

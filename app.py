@@ -3,6 +3,7 @@ from langchain_community.vectorstores import Chroma
 from langchain_ollama import OllamaEmbeddings
 from langchain_ollama import OllamaLLM
 from langchain_core.prompts import PromptTemplate
+
 # Constants
 CHROMA_PATH = "chroma_db"
 
@@ -29,7 +30,6 @@ vector_db = Chroma(
 )
 
 # Load local LLM
-# llm = Ollama(model="llama3")
 llm = OllamaLLM(model="llama3.1")
 
 # Prompt template
@@ -61,39 +61,72 @@ query = st.text_input(
     "Ask a question from your documents:"
 )
 
+# Run only when query is entered
 if query:
 
     st.subheader("🔍 Retrieving Relevant Chunks...")
 
-    # Similarity search
-    results = vector_db.similarity_search(
+    # Similarity search with score
+    results = vector_db.similarity_search_with_score(
         query,
-        k=1
+        k=2
     )
 
     context_text = ""
 
+    # Similarity threshold
+    SIMILARITY_THRESHOLD = 1.0
+
     # Display retrieved chunks
-    for idx, doc in enumerate(results):
+    for idx, (doc, score) in enumerate(results):
+
+        # Convert score to percentage
+        similarity_percent = round((1 - score) * 100, 2)
+
+        # Prevent negative %
+        similarity_percent = max(similarity_percent, 0)
 
         st.markdown(f"### Chunk {idx + 1}")
 
-        st.info(doc.page_content)
+        # Progress bar
+        st.progress(min(int(similarity_percent), 100))
 
-        context_text += doc.page_content + "\n\n"
+        # Confidence level
+        if similarity_percent > 80:
+            st.success(f"📊 High Match Confidence: {similarity_percent}%")
+
+        elif similarity_percent > 50:
+            st.warning(f"📊 Medium Match Confidence: {similarity_percent}%")
+
+        else:
+            st.error(f"📊 Low Match Confidence: {similarity_percent}%")
+
+        # Show chunk only if relevant
+        if score < SIMILARITY_THRESHOLD:
+
+            st.info(doc.page_content)
+
+            context_text += doc.page_content + "\n\n"
 
     st.markdown("---")
 
-    st.subheader("🤖 Generating Answer...")
+    # No relevant information
+    if context_text == "":
 
-    # Create final prompt
-    final_prompt = prompt.format(
-        context=context_text,
-        question=query
-    )
+        st.warning("❌ No relevant information found in documents.")
 
-    # Generate response
-    response = llm.invoke(final_prompt)
+    else:
 
-    # Display response
-    st.success(response)
+        st.subheader("🤖 Generating Answer...")
+
+        # Create final prompt
+        final_prompt = prompt.format(
+            context=context_text,
+            question=query
+        )
+
+        # Generate response
+        response = llm.invoke(final_prompt)
+
+        # Display response
+        st.success(response)
