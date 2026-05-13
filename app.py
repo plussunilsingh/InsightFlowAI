@@ -68,7 +68,7 @@ if query:
     # Similarity search
     results = vector_db.similarity_search(
         query,
-        k=3
+        k=1
     )
 
     context_text = ""
