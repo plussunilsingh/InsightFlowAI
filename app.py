@@ -2,7 +2,7 @@ import streamlit as st
 from langchain_community.vectorstores import Chroma
 from langchain_ollama import OllamaEmbeddings
 from langchain_ollama import OllamaLLM
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 # Constants
 CHROMA_PATH = "chroma_db"
 
