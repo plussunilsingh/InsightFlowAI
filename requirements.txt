@@ -7,3 +7,6 @@ langchain-ollama
 chromadb
 pypdf
 ollama
+torch
+torchvision
+sentence-transformers
