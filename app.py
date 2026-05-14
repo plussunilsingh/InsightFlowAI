@@ -67,9 +67,10 @@ if query:
     st.subheader("🔍 Retrieving Relevant Chunks...")
 
     # Similarity search with score
-    results = vector_db.similarity_search_with_score(
+    results = vector_db.max_marginal_relevance_search(
         query,
-        k=2
+        k=3,
+        fetch_k=10
     )
 
     context_text = ""
@@ -78,7 +79,7 @@ if query:
     SIMILARITY_THRESHOLD = 1.0
 
     # Display retrieved chunks
-    for idx, (doc, score) in enumerate(results):
+    for idx, doc in enumerate(results):
 
         # Convert score to percentage
         similarity_percent = round((1 - score) * 100, 2)
