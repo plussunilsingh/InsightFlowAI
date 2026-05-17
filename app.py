@@ -18,19 +18,26 @@ st.title("🧠 ContextIQ - Local RAG Assistant")
 
 st.markdown("---")
 
-# Load embedding model
-embedding = OllamaEmbeddings(
-    model="nomic-embed-text"
-)
+# Optimize model load by caching models at app start
+@st.cache_resource
+def load_models():
+    # Load embedding model
+    embedding = OllamaEmbeddings(
+        model="nomic-embed-text"
+    )
 
-# Load vector database
-vector_db = Chroma(
-    persist_directory=CHROMA_PATH,
-    embedding_function=embedding
-)
+    # Load vector database
+    vector_db = Chroma(
+        persist_directory=CHROMA_PATH,
+        embedding_function=embedding
+    )
 
-# Load local LLM
-llm = OllamaLLM(model="llama3.1")
+    # Load local LLM
+    llm = OllamaLLM(model="llama3.1")
+    
+    return embedding, vector_db, llm
+
+embedding, vector_db, llm = load_models()
 
 # Prompt template
 PROMPT_TEMPLATE = """
@@ -61,16 +68,37 @@ query = st.text_input(
     "Ask a question from your documents:"
 )
 
+st.sidebar.title("🛠️ Testing Menu")
+run_tests = st.sidebar.button("Run Keyword & Cricketer Tests")
+
+if run_tests:
+    st.subheader("🧪 Testing All Cricketer Names and Keywords")
+    cricketers = [
+        "Anil Kumble", "Jasprit Bumrah", "Kapil Dev", "MS Dhoni",
+        "Rahul Dravid", "Rohit Sharma", "Sachin Tendulkar", "Sourav Ganguly",
+        "Virat Kohli", "Yuvraj Singh"
+    ]
+    
+    for cricketer in cricketers:
+        st.markdown(f"**Query:** `{cricketer}`")
+        # Ensure we use similarity_search_with_score for accurate results
+        results = vector_db.similarity_search_with_score(cricketer, k=3)
+        
+        for idx, (doc, score) in enumerate(results):
+            # Calculate similarity percentage assuming L2 distance
+            similarity_percent = max(round((1 - score / 2) * 100, 2), 0)
+            st.write(f"- **Rank {idx + 1}** | **Similarity:** {similarity_percent}% | **Match:** {doc.page_content[:100]}...")
+        st.markdown("---")
+
 # Run only when query is entered
 if query:
 
     st.subheader("🔍 Retrieving Relevant Chunks...")
 
-    # Similarity search with score
-    results = vector_db.max_marginal_relevance_search(
+    # Similarity search with score (returns distance, lower is better)
+    results = vector_db.similarity_search_with_score(
         query,
-        k=3,
-        fetch_k=10
+        k=3
     )
 
     context_text = ""
@@ -79,10 +107,10 @@ if query:
     SIMILARITY_THRESHOLD = 1.0
 
     # Display retrieved chunks
-    for idx, doc in enumerate(results):
+    for idx, (doc, score) in enumerate(results):
 
-        # Convert score to percentage
-        similarity_percent = round((1 - score) * 100, 2)
+        # Convert distance score to percentage (assuming L2 max ~2)
+        similarity_percent = round((1 - score / 2) * 100, 2)
 
         # Prevent negative %
         similarity_percent = max(similarity_percent, 0)
