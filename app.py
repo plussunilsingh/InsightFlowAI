@@ -63,7 +63,7 @@ def load_models():
     )
 
     # Load local LLM
-    llm = OllamaLLM(model="llama3.1")
+    llm = OllamaLLM(model="llama3.1", temperature=0.0)
     
     return embedding, vector_db, llm
 
@@ -112,9 +112,7 @@ query = st.text_input(
 st.markdown("---")
 
 PROMPT_TEMPLATE = """
-You are an enterprise knowledge assistant.
-Answer ONLY from the provided context.
-If the answer is not found in the context, say: "I could not find relevant information."
+You are an expert AI assistant designed to extract information from provided context.
 
 Context:
 {context}
@@ -122,7 +120,13 @@ Context:
 Question:
 {question}
 
-Answer:
+Instructions:
+1. Carefully read the Context provided above.
+2. Answer the Question based strictly on the Context. 
+3. You are allowed to rephrase the information and connect names with their descriptions.
+4. If you can deduce the answer from the facts in the Context, do so.
+5. If the Context absolutely does not contain the answer, reply ONLY with: "I could not find relevant information."
+6. Keep your answer direct and professional. Do not add filler words.
 """
 
 prompt = PromptTemplate(
