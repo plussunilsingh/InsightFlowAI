@@ -1,6 +1,6 @@
 import streamlit as st
 from langchain_community.vectorstores import Chroma
-from langchain_ollama import OllamaEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_ollama import OllamaLLM
 from langchain_core.prompts import PromptTemplate
 
@@ -22,8 +22,8 @@ st.markdown("---")
 @st.cache_resource
 def load_models():
     # Load embedding model
-    embedding = OllamaEmbeddings(
-        model="nomic-embed-text"
+    embedding = HuggingFaceEmbeddings(
+        model_name="BAAI/bge-large-en-v1.5"
     )
 
     # Load vector database
@@ -81,13 +81,11 @@ if run_tests:
     
     for cricketer in cricketers:
         st.markdown(f"**Query:** `{cricketer}`")
-        # Ensure we use similarity_search_with_score for accurate results
-        results = vector_db.similarity_search_with_score(cricketer, k=5)
+        # Ensure we use MMR search for accurate and diverse results
+        results = vector_db.max_marginal_relevance_search(cricketer, k=5, fetch_k=20)
         
-        for idx, (doc, score) in enumerate(results):
-            # Calculate similarity percentage assuming L2 distance
-            similarity_percent = max(round((1 - score / 2) * 100, 2), 0)
-            st.write(f"- **Rank {idx + 1}** | **Similarity:** {similarity_percent}% | **Match:** {doc.page_content[:100]}...")
+        for idx, doc in enumerate(results):
+            st.write(f"- **Rank {idx + 1}** | **Source:** {doc.metadata.get('source', 'Unknown')} | **Match:** {doc.page_content[:100]}...")
         st.markdown("---")
 
 # Run only when query is entered
@@ -95,47 +93,20 @@ if query:
 
     st.subheader("🔍 Retrieving Relevant Chunks...")
 
-    # Similarity search with score (returns distance, lower is better)
-    results = vector_db.similarity_search_with_score(
+    # MMR search
+    results = vector_db.max_marginal_relevance_search(
         query,
-        k=5
+        k=5,
+        fetch_k=20
     )
 
     context_text = ""
 
-    # Similarity threshold
-    SIMILARITY_THRESHOLD = 1.0
-
     # Display retrieved chunks
-    for idx, (doc, score) in enumerate(results):
-
-        # Convert distance score to percentage (assuming L2 max ~2)
-        similarity_percent = round((1 - score / 2) * 100, 2)
-
-        # Prevent negative %
-        similarity_percent = max(similarity_percent, 0)
-
-        st.markdown(f"### Chunk {idx + 1}")
-
-        # Progress bar
-        st.progress(min(int(similarity_percent), 100))
-
-        # Confidence level
-        if similarity_percent > 80:
-            st.success(f"📊 High Match Confidence: {similarity_percent}%")
-
-        elif similarity_percent > 50:
-            st.warning(f"📊 Medium Match Confidence: {similarity_percent}%")
-
-        else:
-            st.error(f"📊 Low Match Confidence: {similarity_percent}%")
-
-        # Show chunk only if relevant
-        if score < SIMILARITY_THRESHOLD:
-
-            st.info(doc.page_content)
-
-            context_text += doc.page_content + "\n\n"
+    for idx, doc in enumerate(results):
+        st.markdown(f"### Chunk {idx + 1} (Source: {doc.metadata.get('source', 'Unknown')})")
+        st.info(doc.page_content)
+        context_text += doc.page_content + "\n\n"
 
     st.markdown("---")
 
