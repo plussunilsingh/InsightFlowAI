@@ -82,7 +82,7 @@ if run_tests:
     for cricketer in cricketers:
         st.markdown(f"**Query:** `{cricketer}`")
         # Ensure we use similarity_search_with_score for accurate results
-        results = vector_db.similarity_search_with_score(cricketer, k=3)
+        results = vector_db.similarity_search_with_score(cricketer, k=5)
         
         for idx, (doc, score) in enumerate(results):
             # Calculate similarity percentage assuming L2 distance
@@ -98,7 +98,7 @@ if query:
     # Similarity search with score (returns distance, lower is better)
     results = vector_db.similarity_search_with_score(
         query,
-        k=3
+        k=5
     )
 
     context_text = ""

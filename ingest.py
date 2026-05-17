@@ -30,8 +30,8 @@ for file in os.listdir(DOCS_PATH):
 
 # Split text
 text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=200,
-    chunk_overlap=10
+    chunk_size=1000,
+    chunk_overlap=200
 )
 
 chunks = text_splitter.split_documents(documents)
