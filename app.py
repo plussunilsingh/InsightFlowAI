@@ -228,8 +228,9 @@ if st.session_state.is_processing and st.session_state.query:
     st.markdown("### 🤖 Generated Answer")
     
     with st.spinner("Retrieving relevant information..."):
-        # Fast Retrieval: Use similarity_search_with_score to get scores natively
-        results = vector_db.similarity_search_with_score(active_query, k=5)
+        # Nomic-embed-text requires explicit prefixes for asymmetric query/document matching to avoid ranking errors!
+        active_query_with_prefix = "search_query: " + active_query
+        results = vector_db.similarity_search_with_score(active_query_with_prefix, k=5)
     
     context_text = "\n\n".join([doc.page_content for doc, distance in results])
     

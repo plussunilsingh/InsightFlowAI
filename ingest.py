@@ -19,7 +19,7 @@ for file in os.listdir(DOCS_PATH):
 
         documents.append(
             Document(
-                page_content=text,
+                page_content="search_document: " + text,
                 metadata={"source": file}
             )
         )
