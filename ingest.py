@@ -19,7 +19,7 @@ for file in os.listdir(DOCS_PATH):
 
         documents.append(
             Document(
-                page_content="search_document: " + text,
+                page_content=text,
                 metadata={"source": file}
             )
         )
@@ -48,7 +48,8 @@ embedding = OllamaEmbeddings(
 vector_db = Chroma.from_documents(
     documents=chunks,
     embedding=embedding,
-    persist_directory=CHROMA_PATH
+    persist_directory=CHROMA_PATH,
+    collection_metadata={"hnsw:space": "cosine"}
 )
 
 print("Vector DB created successfully!")

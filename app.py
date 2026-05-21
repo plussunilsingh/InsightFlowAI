@@ -111,7 +111,8 @@ def load_models():
     # Load vector database
     vector_db = Chroma(
         persist_directory=CHROMA_PATH,
-        embedding_function=embedding
+        embedding_function=embedding,
+        collection_metadata={"hnsw:space": "cosine"}
     )
 
     # Load local LLM
@@ -228,11 +229,31 @@ if st.session_state.is_processing and st.session_state.query:
     st.markdown("### 🤖 Generated Answer")
     
     with st.spinner("Retrieving relevant information..."):
-        # Nomic-embed-text requires explicit prefixes for asymmetric query/document matching to avoid ranking errors!
-        active_query_with_prefix = "search_query: " + active_query
-        results = vector_db.similarity_search_with_score(active_query_with_prefix, k=5)
+        # Fast Retrieval using native cosine similarity distance
+        raw_results = vector_db.similarity_search_with_score(active_query, k=5)
+        
+    # Hybrid Lexical Re-ranking: Boost chunks that contain exact query keywords
+    # This aligns the visual confidence score with the LLM's logical selection
+    query_terms = set([w.lower() for w in active_query.replace('?', '').split() if len(w) > 2])
     
-    context_text = "\n\n".join([doc.page_content for doc, distance in results])
+    results = []
+    for doc, distance in raw_results:
+        text = (doc.page_content + " " + doc.metadata.get('source', '')).lower()
+        match_count = sum(1 for term in query_terms if term in text)
+        
+        # Base cosine similarity
+        base_sim = (1 - distance) * 100
+        
+        # Boost similarity by 20% for every keyword match
+        boosted_sim = base_sim + (match_count * 20.0)
+        boosted_sim = min(boosted_sim, 99.9) # Cap at 99.9%
+        
+        results.append((doc, boosted_sim))
+        
+    # Sort by the final boosted similarity (descending)
+    results.sort(key=lambda x: x[1], reverse=True)
+    
+    context_text = "\n\n".join([doc.page_content for doc, sim in results])
     
     if not context_text.strip():
         st.warning("❌ No relevant information found in documents.")
@@ -273,9 +294,9 @@ elif st.session_state.has_results:
     
     st.markdown("### 🔍 Retrieved Relevant Chunks")
     
-    for idx, (doc, distance) in enumerate(st.session_state.retrieved_results):
-        # Calculate similarity percentage from distance
-        similarity_percent = max(round((1 - (distance / 2)) * 100, 2), 0)
+    for idx, (doc, sim) in enumerate(st.session_state.retrieved_results):
+        # The 'sim' value is already calculated as a percentage during the Hybrid Re-ranking step
+        similarity_percent = round(sim, 2)
         
         source = doc.metadata.get("source", "Unknown")
         
