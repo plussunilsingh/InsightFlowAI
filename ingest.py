@@ -3,7 +3,7 @@ import shutil
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_ollama import OllamaEmbeddings
 
 CHROMA_PATH = "chroma_db"
 DOCS_PATH = "docs"
@@ -40,8 +40,8 @@ if os.path.exists(CHROMA_PATH):
     shutil.rmtree(CHROMA_PATH)
 
 # Embedding model
-embedding = HuggingFaceEmbeddings(
-    model_name="BAAI/bge-large-en-v1.5"
+embedding = OllamaEmbeddings(
+    model="nomic-embed-text"
 )
 
 # Create vector DB

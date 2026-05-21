@@ -1,10 +1,20 @@
 import os
+# --- MAC OS CRASH FIXES ---
+# Fixes Segmentation fault: 11 caused by PyTorch/Tokenizers M-chip thread conflicts
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["OMP_NUM_THREADS"] = "1"
+# --------------------------
+
 import streamlit as st
 from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_ollama import OllamaLLM
+from langchain_ollama import OllamaLLM, OllamaEmbeddings
 from langchain_core.prompts import PromptTemplate
 import numpy as np
+
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["OMP_NUM_THREADS"] = "1"
 
 # Constants
 CHROMA_PATH = "chroma_db"
@@ -52,8 +62,8 @@ st.markdown("""
 @st.cache_resource(show_spinner="Loading Models & Database...")
 def load_models():
     # Load embedding model
-    embedding = HuggingFaceEmbeddings(
-        model_name="BAAI/bge-large-en-v1.5"
+    embedding = OllamaEmbeddings(
+        model="nomic-embed-text"
     )
 
     # Load vector database
