@@ -103,11 +103,36 @@ st.markdown('<p class="sub-header">Ask questions from your local knowledge base<
 
 # 1. Question Input Section
 st.markdown("### 📝 Ask a Question")
-query = st.text_input(
-    "",
-    placeholder="e.g. Who is Sachin Tendulkar?",
-    label_visibility="collapsed"
-)
+
+if "is_processing" not in st.session_state:
+    st.session_state.is_processing = False
+if "query" not in st.session_state:
+    st.session_state.query = ""
+
+def set_processing():
+    if st.session_state.query_input.strip():
+        st.session_state.is_processing = True
+        st.session_state.query = st.session_state.query_input
+
+def stop_processing():
+    st.session_state.is_processing = False
+    st.session_state.query = ""
+
+col1, col2, col3 = st.columns([6, 2, 2])
+with col1:
+    st.text_input(
+        "", 
+        placeholder="e.g. Who is Sachin Tendulkar?", 
+        label_visibility="collapsed",
+        key="query_input",
+        disabled=st.session_state.is_processing
+    )
+with col2:
+    st.button("🔍 Search", type="primary", use_container_width=True, 
+              disabled=st.session_state.is_processing, on_click=set_processing)
+with col3:
+    st.button("🛑 Stop Search", type="secondary", use_container_width=True, 
+              disabled=not st.session_state.is_processing, on_click=stop_processing)
 
 st.markdown("---")
 
@@ -134,47 +159,48 @@ prompt = PromptTemplate(
     input_variables=["context", "question"]
 )
 
-def get_cosine_similarity(vec1, vec2):
-    vec1 = np.array(vec1)
-    vec2 = np.array(vec2)
-    return np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
-
-if query:
+if st.session_state.is_processing and st.session_state.query:
+    active_query = st.session_state.query
     
     # 2. Generating Answer Section
     st.markdown("### 🤖 Generated Answer")
     
-    # We retrieve first, but display answer first
-    # MMR retrieval
-    results = vector_db.max_marginal_relevance_search(
-        query,
-        k=5,
-        fetch_k=20
-    )
+    with st.spinner("Retrieving relevant information..."):
+        # Fast Retrieval: Use similarity_search_with_score to get scores natively and avoid slow manual re-embedding
+        results = vector_db.similarity_search_with_score(
+            active_query,
+            k=5
+        )
     
-    context_text = "\n\n".join([doc.page_content for doc in results])
+    context_text = "\n\n".join([doc.page_content for doc, distance in results])
     
     if not context_text.strip():
         st.warning("❌ No relevant information found in documents.")
     else:
-        final_prompt = prompt.format(context=context_text, question=query)
+        final_prompt = prompt.format(context=context_text, question=active_query)
         
-        with st.spinner("Generating answer..."):
-            response = llm.invoke(final_prompt)
+        st.markdown('<div class="answer-box">', unsafe_allow_html=True)
+        # Use a placeholder for streaming to improve perceived performance
+        answer_placeholder = st.empty()
+        
+        try:
+            full_response = ""
+            for chunk in llm.stream(final_prompt):
+                full_response += chunk
+                answer_placeholder.markdown(full_response + "▌")
             
-        st.markdown(f'<div class="answer-box">{response}</div>', unsafe_allow_html=True)
+            answer_placeholder.markdown(full_response)
+        except Exception as e:
+            st.error(f"Generation stopped or failed: {e}")
+            
+        st.markdown('</div>', unsafe_allow_html=True)
         
     # 3. Retrieving Relevant Chunks Section
     st.markdown("### 🔍 Retrieved Relevant Chunks")
     
-    # Embed query to compute scores manually for MMR results
-    query_emb = embedding.embed_query(query)
-    
-    for idx, doc in enumerate(results):
-        # We manually compute similarity score since MMR doesn't return scores directly
-        doc_emb = embedding.embed_query(doc.page_content)
-        similarity = get_cosine_similarity(query_emb, doc_emb)
-        similarity_percent = max(round(similarity * 100, 2), 0)
+    for idx, (doc, distance) in enumerate(results):
+        # Calculate similarity percentage from distance
+        similarity_percent = max(round((1 - (distance / 2)) * 100, 2), 0)
         
         source = doc.metadata.get("source", "Unknown")
         
@@ -190,7 +216,6 @@ if query:
             bar_color = "error"
             
         with st.expander(f"{color} Chunk {idx + 1} | Source: {source} | Confidence: {similarity_percent}%"):
-            
             if bar_color == "success":
                 st.success(f"High Match Confidence: {similarity_percent}%")
             elif bar_color == "warning":
@@ -199,3 +224,9 @@ if query:
                 st.error(f"Low Match Confidence: {similarity_percent}%")
                 
             st.info(doc.page_content)
+    
+    st.markdown("---")
+    if st.button("✨ Start New Search", type="primary", use_container_width=True):
+        st.session_state.is_processing = False
+        st.session_state.query = ""
+        st.rerun()
