@@ -7,6 +7,8 @@ os.environ["OMP_NUM_THREADS"] = "1"
 # --------------------------
 
 import streamlit as st
+import base64
+import markdown
 from langchain_community.vectorstores import Chroma
 from langchain_ollama import OllamaLLM, OllamaEmbeddings
 from langchain_core.prompts import PromptTemplate
@@ -28,31 +30,71 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Set background image function
+def set_page_bg(png_file):
+    if os.path.exists(png_file):
+        with open(png_file, 'rb') as f:
+            data = f.read()
+        bin_str = base64.b64encode(data).decode()
+        page_bg_img = f'''
+        <style>
+        .stApp {{
+            background-image: url("data:image/png;base64,{bin_str}");
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }}
+        /* Add a frosted glass container behind all the content for readability */
+        .block-container {{
+            background: rgba(10, 15, 30, 0.75);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            padding: 3rem;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }}
+        </style>
+        '''
+        st.markdown(page_bg_img, unsafe_allow_html=True)
+
+set_page_bg("rag_hero_banner.png")
+
 # Custom CSS for modern styling
 st.markdown("""
 <style>
     .main-header {
         text-align: center;
-        font-size: 3rem;
-        font-weight: 700;
+        font-size: 3.5rem;
+        font-weight: 800;
         margin-bottom: 0;
-        color: #1E88E5;
+        background: linear-gradient(90deg, #00f2fe 0%, #4facfe 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: 0 0 20px rgba(79, 172, 254, 0.4);
     }
     .sub-header {
         text-align: center;
         font-size: 1.2rem;
         font-weight: 400;
         margin-bottom: 2rem;
-        color: #6c757d;
+        color: #e2e8f0;
     }
     .answer-box {
-        background-color: #f8f9fa;
-        border-left: 5px solid #28a745;
+        background: rgba(15, 23, 42, 0.65);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-left: 5px solid #00f2fe;
+        border: 1px solid rgba(255,255,255,0.15);
         padding: 1.5rem;
-        border-radius: 0.5rem;
+        border-radius: 12px;
         margin-bottom: 2rem;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        color: #000000;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        color: #f8f9fa;
+        font-size: 1.1rem;
+        line-height: 1.6;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -110,6 +152,8 @@ if st.sidebar.button("🗑️ Clear Cache & Reload"):
 
 st.markdown('<p class="main-header">🧠 ContextIQ</p>', unsafe_allow_html=True)
 st.markdown('<p class="sub-header">Ask questions from your local knowledge base</p>', unsafe_allow_html=True)
+
+st.markdown("---")
 
 # 1. Question Input Section
 st.markdown("### 📝 Ask a Question")
@@ -196,16 +240,17 @@ if st.session_state.is_processing and st.session_state.query:
     else:
         final_prompt = prompt.format(context=context_text, question=active_query)
         
-        st.markdown('<div class="answer-box">', unsafe_allow_html=True)
         answer_placeholder = st.empty()
         
         try:
             full_response = ""
             for chunk in llm.stream(final_prompt):
                 full_response += chunk
-                answer_placeholder.markdown(full_response + "▌")
+                html_content = markdown.markdown(full_response + "▌")
+                answer_placeholder.markdown(f'<div class="answer-box">{html_content}</div>', unsafe_allow_html=True)
             
-            answer_placeholder.markdown(full_response)
+            html_content = markdown.markdown(full_response)
+            answer_placeholder.markdown(f'<div class="answer-box">{html_content}</div>', unsafe_allow_html=True)
             
             # Save state so we can display it after rerun
             st.session_state.full_response = full_response
@@ -214,8 +259,6 @@ if st.session_state.is_processing and st.session_state.query:
             
         except Exception as e:
             st.error(f"Generation stopped or failed: {e}")
-            
-        st.markdown('</div>', unsafe_allow_html=True)
         
         # We finished generating! Turn off processing and rerun to re-enable search button
         st.session_state.is_processing = False
@@ -224,9 +267,8 @@ if st.session_state.is_processing and st.session_state.query:
 # 3. Displaying Saved Results Section (Triggered after rerun)
 elif st.session_state.has_results:
     st.markdown("### 🤖 Generated Answer")
-    st.markdown('<div class="answer-box">', unsafe_allow_html=True)
-    st.markdown(st.session_state.full_response)
-    st.markdown('</div>', unsafe_allow_html=True)
+    html_content = markdown.markdown(st.session_state.full_response)
+    st.markdown(f'<div class="answer-box">{html_content}</div>', unsafe_allow_html=True)
     
     st.markdown("### 🔍 Retrieved Relevant Chunks")
     
