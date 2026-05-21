@@ -10,3 +10,4 @@ ollama
 torch
 torchvision
 sentence-transformers
+markdown
